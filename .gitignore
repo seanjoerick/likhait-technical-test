@@ -65,3 +65,16 @@ yarn-error.log*
 
 # RSpec
 /backend/.rspec_status
+
+# Bundler
+/backend/vendor/bundle/
+/backend/vendor/cache/
+/backend/.bundle/
+
+# Ruby environment
+/backend/.ruby-version
+/backend/.ruby-gemset
+
+# Process files
+*.pid
+*.pid.lock
