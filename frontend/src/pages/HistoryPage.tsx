@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { getExpenses, createExpense } from "../services/api";
+import { getExpenses, createExpense, createCategory } from "../services/api";
 import { Expense, ExpenseFormData } from "../types";
 import YearNavigation from "../components/YearNavigation";
 import { MonthNavigation } from "../components/MonthNavigation";
 import CategoryBreakdown from "../components/CategoryBreakdown";
 import { CalendarExpenseTable } from "../components/CalendarExpenseTable";
 import { ExpenseForm } from "../components/ExpenseForm";
-import { Modal, Button } from "../vibes";
+import { CategoryForm } from "../components/CategoryForm";
+import { Modal, Button, Alert } from "../vibes";
 import { COLORS } from "../constants/colors";
 
 const HistoryPage: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryRefreshKey, setCategoryRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [alert, setAlert] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
 
   // Get year and month from URL params, default to current date if not provided
   const getInitialYearMonth = () => {
@@ -49,6 +57,16 @@ const HistoryPage: React.FC = () => {
     fetchExpenses();
   }, [selectedYear, selectedMonth]);
 
+  useEffect(() => {
+    if (!alert) return;
+
+    const timer = setTimeout(() => {
+      setAlert(null);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [alert]);
+
   const fetchExpenses = async () => {
     try {
       setLoading(true);
@@ -78,6 +96,18 @@ const HistoryPage: React.FC = () => {
       fetchExpenses();
     } catch (error) {
       console.error("Error creating expense:", error);
+      throw error;
+    }
+  };
+
+  const handleAddCategory = async (name: string) => {
+    try {
+      await createCategory(name);
+      setAlert({ message: "Category created successfully!", type: "success" });
+      setIsCategoryModalOpen(false);
+      setCategoryRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      setAlert({ message: "Failed to create category.", type: "error" });
       throw error;
     }
   };
@@ -148,10 +178,20 @@ const HistoryPage: React.FC = () => {
             onYearChange={handleYearChange}
           />
         </div>
-        <Button variant="primary" onClick={() => setIsModalOpen(true)}>
-          Add Expense
-        </Button>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <Button
+            variant="secondary"
+            onClick={() => setIsCategoryModalOpen(true)}
+          >
+            Add Category
+          </Button>
+          <Button variant="primary" onClick={() => setIsModalOpen(true)}>
+            Add Expense
+          </Button>
+        </div>
       </div>
+
+      {alert && <Alert type={alert.type}>{alert.message}</Alert>}
 
       <MonthNavigation
         currentMonth={selectedMonth}
@@ -187,6 +227,18 @@ const HistoryPage: React.FC = () => {
         <ExpenseForm
           onSubmit={handleAddExpense}
           onCancel={() => setIsModalOpen(false)}
+          refreshCategories={categoryRefreshKey}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        title="Add New Category"
+      >
+        <CategoryForm
+          onSubmit={handleAddCategory}
+          onCancel={() => setIsCategoryModalOpen(false)}
         />
       </Modal>
     </div>
