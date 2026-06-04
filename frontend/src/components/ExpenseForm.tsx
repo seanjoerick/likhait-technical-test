@@ -2,24 +2,38 @@
  * Form component for adding/editing expenses
  */
 
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { ExpenseFormData } from "../types";
-import { EXPENSE_CATEGORIES } from "../constants/categories";
 import { TextField, SelectBox, Button } from "../vibes";
 import { useExpenseForm } from "../hooks/useExpenseForm";
+import { fetchCategories } from "../services/api";
 
 interface ExpenseFormProps {
   initialData?: Partial<ExpenseFormData>;
   onSubmit: (data: ExpenseFormData) => Promise<void>;
   onCancel?: () => void;
   submitLabel?: string;
+  refreshCategories?: number;
 }
+
+const formStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "1rem",
+};
+
+const buttonGroupStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "0.5rem",
+  marginTop: "0.5rem",
+};
 
 export function ExpenseForm({
   initialData,
   onSubmit,
   onCancel,
   submitLabel = "Add Expense",
+  refreshCategories = 0,
 }: ExpenseFormProps) {
   const { formData, errors, isSubmitting, handleChange, handleSubmit } =
     useExpenseForm({
@@ -27,21 +41,30 @@ export function ExpenseForm({
       onSubmit,
     });
 
-  const formStyle: React.CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  };
+  const [categories, setCategories] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
 
-  const buttonGroupStyle: React.CSSProperties = {
-    display: "flex",
-    gap: "0.5rem",
-    marginTop: "0.5rem",
-  };
+  const loadCategories = useCallback(async () => {
+    try {
+      setCategoriesLoading(true);
+      const data = await fetchCategories();
+      setCategories(data);
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, []);
 
-  const categoryOptions = EXPENSE_CATEGORIES.map((category) => ({
-    value: category,
-    label: category,
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories, refreshCategories]);
+
+  const categoryOptions = categories.map((category) => ({
+    value: category.name,
+    label: category.name,
   }));
 
   return (
@@ -57,7 +80,6 @@ export function ExpenseForm({
         fullWidth
         required
       />
-
       <TextField
         label="Description"
         type="text"
@@ -68,17 +90,19 @@ export function ExpenseForm({
         fullWidth
         required
       />
-
       <SelectBox
         label="Category"
-        options={categoryOptions}
+        options={
+          categoriesLoading
+            ? [{ value: "", label: "Loading..." }]
+            : categoryOptions
+        }
         value={formData.category}
         onChange={(e) => handleChange("category", e.target.value)}
         error={errors.category}
         fullWidth
         required
       />
-
       <TextField
         label="Date"
         type="date"
@@ -88,12 +112,11 @@ export function ExpenseForm({
         fullWidth
         required
       />
-
       <div style={buttonGroupStyle}>
         <Button
           type="submit"
           variant="primary"
-          disabled={isSubmitting}
+          disabled={isSubmitting || categoriesLoading}
           fullWidth
         >
           {isSubmitting ? "Submitting..." : submitLabel}
